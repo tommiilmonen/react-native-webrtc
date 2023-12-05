@@ -2,6 +2,7 @@ package com.oney.WebRTCModule;
 
 import android.content.Context;
 import android.hardware.usb.UsbDevice;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
@@ -14,7 +15,9 @@ import org.webrtc.CameraVideoCapturer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 
@@ -29,23 +32,33 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
     /** UVC camera names will be prefix with this value. Currently, there is no other way to
      * easily distinguish between device's own and external uvc cameras in JS-side. */
     public static final String UVC_PREFIX = "uvc-camera:";
-
-    private final UVCMonitor uvcMonitor;
+    private final Map<String, Integer> cameraIdsByName = new HashMap<>();
     private final Context context;
 
     public UVCCamera2Enumerator(Context context) {
         super(context);
-        this.uvcMonitor = new UVCMonitor(context);
         this.context = context;
     }
 
     @Override
     public String[] getDeviceNames() {
         ArrayList<String> devicesNames = new ArrayList<>(Arrays.asList(super.getDeviceNames()));
-        UsbDevice uvcDevice = this.uvcMonitor.getUvcCameraDevice();
-        if (uvcDevice != null) {
-            devicesNames.add(UVC_PREFIX + uvcDevice.getDeviceName());
+
+        try {
+            CameraUvcStrategy uvcStrategy = new CameraUvcStrategy(context);
+            List<UsbDevice> uvcCameras = uvcStrategy.getUsbDeviceList(null); // null := no filtering
+            if (uvcCameras != null) {
+                uvcCameras.forEach(camera -> {
+                    String uvcCameraName = UVC_PREFIX + camera.getDeviceName();
+                    cameraIdsByName.put(uvcCameraName, camera.getDeviceId());
+                    devicesNames.add(uvcCameraName);
+                });
+            }
+            uvcStrategy.unRegister();
+        } catch (Exception e) {
+            Log.e(WebRTCModule.TAG, "Error in uvc camera enumeration", e);
         }
+
         return devicesNames.toArray(new String[0]);
     }
 
@@ -89,7 +102,7 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
     @Override
     public CameraVideoCapturer createCapturer(String cameraName, CameraVideoCapturer.CameraEventsHandler eventsHandler) {
         if (isUvcCamera(cameraName)) {
-            return new UVCVideoCapturer();
+            return new UVCVideoCapturer(getCameraId(cameraName));
         }
 
         return super.createCapturer(cameraName, eventsHandler);
@@ -97,5 +110,13 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
 
     public static boolean isUvcCamera(String deviceName) {
         return deviceName != null && deviceName.startsWith(UVC_PREFIX);
+    }
+
+    private Integer getCameraId(String cameraName) {
+        Integer id = cameraIdsByName.get(cameraName);
+        if (id == null) {
+            throw new RuntimeException("No camera id found for camera: " + cameraName);
+        }
+        return id;
     }
 }
