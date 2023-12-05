@@ -20,16 +20,11 @@ import java.util.function.Consumer;
 
 public class UVCVideoCapturer implements CameraVideoCapturer {
 
-    private final Integer cameraId;
     private SurfaceTextureHelper surfaceTextureHelper;
     private CapturerObserver capturerObserver;
     private CameraUvcStrategy cameraUvcStrategy;
     private PreviewDataCallback previewDataCallback;
     private boolean isCapturerStarted;
-
-    public UVCVideoCapturer(@NonNull Integer cameraId) {
-        this.cameraId = cameraId;
-    }
 
     @Override
     public synchronized void initialize(SurfaceTextureHelper surfaceTextureHelper, Context context, CapturerObserver capturerObserver) {
@@ -94,7 +89,6 @@ public class UVCVideoCapturer implements CameraVideoCapturer {
     private CameraRequest createCameraRequest(int width, int height) {
         return new CameraRequest
                 .Builder()
-                .setCameraId(this.cameraId.toString())
                 .setPreviewWidth(width)
                 .setPreviewHeight(height)
                 .create();

@@ -15,9 +15,7 @@ import org.webrtc.CameraVideoCapturer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 
@@ -32,7 +30,6 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
     /** UVC camera names will be prefix with this value. Currently, there is no other way to
      * easily distinguish between device's own and external uvc cameras in JS-side. */
     public static final String UVC_PREFIX = "uvc-camera:";
-    private final Map<String, Integer> cameraIdsByName = new HashMap<>();
     private final Context context;
 
     public UVCCamera2Enumerator(Context context) {
@@ -48,11 +45,7 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
             CameraUvcStrategy uvcStrategy = new CameraUvcStrategy(context);
             List<UsbDevice> uvcCameras = uvcStrategy.getUsbDeviceList(null); // null := no filtering
             if (uvcCameras != null) {
-                uvcCameras.forEach(camera -> {
-                    String uvcCameraName = UVC_PREFIX + camera.getDeviceName();
-                    cameraIdsByName.put(uvcCameraName, camera.getDeviceId());
-                    devicesNames.add(uvcCameraName);
-                });
+                uvcCameras.forEach(camera -> devicesNames.add(UVC_PREFIX + camera.getDeviceName()));
             }
             uvcStrategy.unRegister();
         } catch (Exception e) {
@@ -102,7 +95,7 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
     @Override
     public CameraVideoCapturer createCapturer(String cameraName, CameraVideoCapturer.CameraEventsHandler eventsHandler) {
         if (isUvcCamera(cameraName)) {
-            return new UVCVideoCapturer(getCameraId(cameraName));
+            return new UVCVideoCapturer();
         }
 
         return super.createCapturer(cameraName, eventsHandler);
@@ -110,13 +103,5 @@ public class UVCCamera2Enumerator extends Camera2Enumerator  {
 
     public static boolean isUvcCamera(String deviceName) {
         return deviceName != null && deviceName.startsWith(UVC_PREFIX);
-    }
-
-    private Integer getCameraId(String cameraName) {
-        Integer id = cameraIdsByName.get(cameraName);
-        if (id == null) {
-            throw new RuntimeException("No camera id found for camera: " + cameraName);
-        }
-        return id;
     }
 }
